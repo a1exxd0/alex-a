@@ -53,10 +53,8 @@ class Settings(BaseSettings):
     embedding_model: str = "text-embedding-3-small"
     embedding_api_key: str = ""  # falls back to llm_api_key if empty
 
-    # System prompt — available placeholders: {user}, {date}, {memories}
-    system_prompt: str = (
-        "You are {user}'s personal AI assistant. Today is {date}.\n\n{memories}"
-    )
+    # System prompt file path
+    system_prompt_path: Path = Path("system_prompts/alex.md")
 
     # Discord
     discord_token: str

@@ -38,7 +38,7 @@ class Agent:
         self._tool_registry = tool_registry
         self._llm_model = settings.llm_model
         self._token_limit = settings.context_token_limit
-        self._system_prompt_template = settings.system_prompt
+        self._system_prompt_template = settings.system_prompt_path.read_text(encoding="utf-8")
 
         self._history: list[dict[str, Any]] = []
         self._user_cache: dict[int, User] = {}
