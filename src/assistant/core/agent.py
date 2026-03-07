@@ -39,6 +39,7 @@ class Agent:
         self._llm_model = settings.llm_model
         self._token_limit = settings.context_token_limit
         self._system_prompt_template = settings.system_prompt_path.read_text(encoding="utf-8")
+        self._timezone = settings.timezone
 
         self._history: list[dict[str, Any]] = []
         self._user_cache: dict[int, User] = {}
@@ -89,6 +90,7 @@ class Agent:
 
                 # Execute each tool and append its result
                 for tool_call in choice.message.tool_calls:
+                    tool_call._channel_id = message.channel_id  # type: ignore[attr-defined]
                     result = await self._execute_tool(tool_call)
                     context.append({
                         "role": "tool",
@@ -144,6 +146,15 @@ class Agent:
             if m.get("role") in ("user", "assistant") and m.get("content")
         ]
 
+    def record_proactive(self, content: str) -> None:
+        """Append a proactively sent message to the conversation history.
+
+        Call this after sending an unsolicited notification (e.g. an email
+        summary) so the agent can refer back to it in subsequent turns.
+        """
+        self._history.append({"role": "assistant", "content": content})
+        self._trim_history()
+
     def clear_history(self) -> None:
         """Discard the in-memory conversation buffer."""
         self._history.clear()
@@ -165,6 +176,7 @@ class Agent:
         return self._system_prompt_template.format(
             user=display_name,
             date=datetime.now(UTC).strftime("%A, %-d %B %Y"),
+            timezone=self._timezone,
             memories=memory_block,
         ).strip()
 

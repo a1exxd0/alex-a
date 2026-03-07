@@ -35,7 +35,15 @@ async def main() -> None:
 
     log.info("Starting up Discord platform...")
     await platform.start()
-    
+
+    if "gmail" in settings.enabled_skills:
+        from assistant.skills.gmail import GmailPoller
+        notify_user_id = settings.discord_allowed_user_ids[0]
+        dm_channel_id = await platform.open_dm_channel(notify_user_id)
+        poller = GmailPoller(poll_interval=settings.gmail_poll_interval_seconds)
+        asyncio.create_task(poller.run(platform, dm_channel_id, agent))
+        log.info("Gmail poller started (interval=%ds, notifying user %d)", settings.gmail_poll_interval_seconds, notify_user_id)
+
     log.info("Agent listening for messages...")
     try:
         async for message in platform.listen():

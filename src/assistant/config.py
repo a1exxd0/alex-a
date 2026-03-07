@@ -56,13 +56,20 @@ class Settings(BaseSettings):
     # System prompt file path
     system_prompt_path: Path = Path("system_prompts/alex.md")
 
+    # Email writing style guide (injected into send/reply tool descriptions)
+    email_style_path: Path = Path("system_prompts/alex_email.md")
+
+    # User timezone (IANA format, e.g. "Europe/London")
+    timezone: str = "UTC"
+
     # Discord
     discord_token: str
     discord_allowed_user_ids: list[int]
 
     # Paths
     lancedb_path: Path = Path("data/lancedb")
-    google_token_path: Path = Path("data/google_token.json")
+    google_credentials_path: Path = Path("data/google/google_token.json")
+    google_user_token_path: Path = Path("data/google/user_token.json")
 
     # Summarisation schedule: comma-separated UTC hours, e.g. "2" or "2,14"
     summarisation_hours: list[int] = [2]
@@ -70,6 +77,9 @@ class Settings(BaseSettings):
     # Memory / context tuning
     memory_top_k: int = 5
     context_token_limit: int = 8000
+
+    # Gmail poller: how often to check for new unread emails (seconds)
+    gmail_poll_interval_seconds: int = 600
 
     # Confirmation gate
     confirmation_timeout_seconds: int = 60
