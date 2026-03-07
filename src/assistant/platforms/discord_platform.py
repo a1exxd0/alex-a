@@ -48,9 +48,11 @@ class DiscordPlatform:
         self._allowed_ids = set(settings.discord_allowed_user_ids)
         self._queue: asyncio.Queue[Message] = asyncio.Queue()
         self._task: asyncio.Task | None = None
+        self._pending_confirmation: dict | None = None
 
         intents = discord.Intents.default()
         intents.message_content = True  # privileged — enable in Discord dev portal
+        intents.dm_reactions = True     # needed for confirmation gate in DMs
         self._client = discord.Client(intents=intents)
 
         @self._client.event
@@ -74,6 +76,19 @@ class DiscordPlatform:
                     timestamp=datetime.now(UTC),
                 )
             )
+
+        @self._client.event
+        async def on_raw_reaction_add(payload: discord.RawReactionActionEvent) -> None:
+            pending = self._pending_confirmation
+            if pending is None:
+                return
+            if (
+                payload.message_id == pending["message_id"]
+                and payload.user_id in self._allowed_ids
+                and str(payload.emoji) in ("✅", "❌")
+            ):
+                pending["result"] = str(payload.emoji) == "✅"
+                pending["event"].set()
 
     async def start(self) -> None:
         await self._client.login(self._token)
@@ -104,6 +119,12 @@ class DiscordPlatform:
         discord_user = await self._client.fetch_user(user_id)
         return User(id=user_id, display_name=discord_user.display_name)
 
+    async def open_dm_channel(self, user_id: int) -> str:
+        """Return the DM channel ID for *user_id*, creating it if needed."""
+        discord_user = await self._client.fetch_user(user_id)
+        dm = await discord_user.create_dm()
+        return str(dm.id)
+
     async def request_confirmation(self, prompt: str, channel_id: str, timeout: int) -> bool:
         """Send *prompt*, add ✅/❌ reactions, and wait for one back.
 
@@ -118,20 +139,20 @@ class DiscordPlatform:
         await msg.add_reaction("✅")
         await msg.add_reaction("❌")
 
-        def check(reaction: discord.Reaction, user: discord.User) -> bool:
-            return (
-                reaction.message.id == msg.id
-                and user.id in self._allowed_ids
-                and str(reaction.emoji) in ("✅", "❌")
-            )
+        event = asyncio.Event()
+        self._pending_confirmation = {
+            "message_id": msg.id,
+            "event": event,
+            "result": False,
+        }
 
         try:
-            reaction, _ = await self._client.wait_for(
-                "reaction_add", check=check, timeout=float(timeout),
-            )
-            approved = str(reaction.emoji) == "✅"
+            await asyncio.wait_for(event.wait(), timeout=float(timeout))
+            approved = self._pending_confirmation["result"]
         except asyncio.TimeoutError:
             log.info("Confirmation timed out after %ds — treating as denied", timeout)
             approved = False
+        finally:
+            self._pending_confirmation = None
 
         return approved
