@@ -12,6 +12,12 @@ You need `uv` to run this. Run with:
 uv run python main.py
 ```
 
+## Testing
+
+```sh
+uv run pytest
+```
+
 ## Todo
 
 - Proper error propagation
